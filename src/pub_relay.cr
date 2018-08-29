@@ -33,7 +33,9 @@ class PubRelay
       serve_actor(context)
     when {"POST", "/inbox"}
       handle_inbox(context)
-    end
+    when {"GET", "/list"}
+      instance_list(context)
+  end
   end
 
   private def serve_webfinger(ctx)
@@ -74,6 +76,21 @@ class PubRelay
 
   private def handle_inbox(context)
     InboxHandler.new(context).handle
+  end
+
+  private def instance_list(ctx)
+    instances = [] of String
+    @@redis.keys("subscription:*").each do |key|
+      key = key.as(String)
+      domain = key.lchop("subscription:")
+      instances.push("https://#{domain}")
+    end
+
+    ctx.response.content_type = "application/json"
+    {
+      last_updated: Time.now.epoch,
+      instances: instances
+    }.to_json(ctx.response)
   end
 
   def account_uri
