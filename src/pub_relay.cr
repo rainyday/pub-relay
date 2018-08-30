@@ -38,6 +38,7 @@ class PubRelay
     when {"GET", "/list"}
       instance_list(context)
   end
+end
 
   private def serve_webfinger(ctx)
     resource = ctx.request.query_params["resource"]?
