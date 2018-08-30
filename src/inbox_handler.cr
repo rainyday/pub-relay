@@ -43,15 +43,12 @@ class InboxHandler
   end
 
   def handle_follow(actor, activity)
-    puts "FOLLOW:"
-    pp actor, activity
-
     unless activity.object_is_public_collection?
       error(400, "Follow only allowed for #{Activity::PUBLIC_COLLECTION}")
     end
 
     accept_activity = {
-      "@context": {"https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"},
+      "@context": {"https://www.w3.org/ns/activitystreams"},
 
       id:     PubRelay.route_url("/actor#accepts/follows/#{actor.domain}"),
       type:   "Accept",
@@ -70,21 +67,24 @@ class InboxHandler
   end
 
   def handle_unfollow(actor, activity)
-    puts "UNFOLLOW:"
-    pp actor, activity
-
     PubRelay.redis.del("subscription:#{actor.domain}")
   end
 
   def handle_forward(actor, request_body)
     # TODO: cache the subscriptions
-    bulk_args = PubRelay.redis.keys("subscription:*").each do |key|
+    bulk_args = PubRelay.redis.keys("subscription:*").compact_map do |key|
       key = key.as(String)
       domain = key.lchop("subscription:")
       raise "redis bug" if domain == key
 
-      DeliverWorker.async.perform(domain, request_body) unless domain == actor.domain
+      if domain == actor.domain
+        nil
+      else
+        {domain, request_body}
+      end
     end
+
+    DeliverWorker.async.perform_bulk(bulk_args)
   end
 
   # Verify HTTP signatures according to https://tools.ietf.org/html/draft-cavage-http-signatures-06.
@@ -248,7 +248,7 @@ class InboxHandler
   end
 
   private def error(status_code, message)
-    puts "ERROR: #{message} #{status_code}"
+    PubRelay.logger.info "Returned error to client: #{message} #{status_code}"
 
     response.status_code = status_code
     response.puts message

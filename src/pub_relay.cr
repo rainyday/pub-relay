@@ -25,6 +25,8 @@ class PubRelay
 
   class_property(host) { ENV["RELAY_DOMAIN"] }
 
+  class_property logger = Logger.new(STDOUT)
+
   def call(context : HTTP::Server::Context)
     case {context.request.method, context.request.path}
     when {"GET", "/.well-known/webfinger"}
@@ -35,7 +37,6 @@ class PubRelay
       handle_inbox(context)
     when {"GET", "/list"}
       instance_list(context)
-  end
   end
 
   private def serve_webfinger(ctx)
