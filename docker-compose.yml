@@ -1,0 +1,36 @@
+version: '3.4'
+services:
+  server:
+    build: .
+    image: homulilly/relay
+    restart: always
+    command: server
+    env_file: .env
+    environment:
+      - RELAY_HOST=0.0.0.0
+      - REDIS_URL=redis://redis:6379
+      - RELAY_PKEY_PATH=/cert/actor.pem
+      - RELAY_DOMAIN=${RELAY_DOMAIN:-localhost}
+    ports:
+      - 8085:8085
+    volumes:
+      - cert:/cert
+  worker:
+    build: .
+    image: homulilly/relay
+    restart: always
+    command: worker
+    env_file: .env
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - RELAY_PKEY_PATH=/cert/actor.pem
+    volumes:
+      - cert:/cert
+  redis:
+    image: redis:4-alpine
+    env_file: .env
+    volumes:
+      - redis:/data
+volumes:
+  redis:
+  cert:
